@@ -1,24 +1,33 @@
 from random import randint, getrandbits
 
 def MillerTest(n : int) -> bool:
+    #Teste de miller pra ver se um número é provavelmente primo.
+    #Implementado de acordo com: https://schcs.github.io/WP/index.php/ensino/fundamentos-de-algebra/o-teste-de-primalidade-de-miller/
     if n <= 3:
         return True
-    b = randint(1,n-1)
+    elif n%2 == 0:
+        return False
+        #Não sei se o resto do teste conta com isso, adicionando pra ter certeza pois acho que já é dado.
+    b = randint(2,n-2)
     k = 1
     q = n-1
     while q%2==0:
         k+=1
         q = q//2
+    #A gente decompõe n-1 no formato (2^k)*q onde q é um número ímpar.
     if pow(b,q,n) == 1:
         return True
+    #Condição 1 pra n ser primo: (b^q)%n == 1
+
     else:
         for i in range(k):
             if pow(b,(pow(2,i))*q,n) == n-1:
+                #Condição 2: b^((2^i)*q)%n == -1, para algum i de 0 a k-1.
                 return True
     return False
 
 def GeneratePrimes(mod):
-    
+    #Gera os dois numeros primos e diferentes entre si.
     a = getrandbits(mod)
     b = getrandbits(mod)
     while not MillerTest(a):
@@ -28,6 +37,7 @@ def GeneratePrimes(mod):
     return a, b
 
 def MDC(a:int, b:int):
+    #Usado pra testar co-primalidade, pelo algoritmo de euclides
     if a < b:
         a,b = b,a
     while a%b != 0:
@@ -35,6 +45,7 @@ def MDC(a:int, b:int):
     return b
 
 def GenerateD(e:int, phi:int):
+    #Algoritmo de euclides extendido. Serve pra descobrir o inverso multiplicativo de e.
     r_atual = phi
     r_novo = e
     u_atual = 1
@@ -67,6 +78,7 @@ def GenerateE(phi:int):
     while mdc != 1:
         e = randint(1,phi)
         mdc = MDC(e,phi)
+    #Gera um E novo entre 1 e phi até e ser co-primo de phi.
     return e
 
 def generateKeyPair(mod:int, file_path:str):
