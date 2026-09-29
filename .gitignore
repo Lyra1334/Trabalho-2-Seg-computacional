@@ -1,0 +1,6 @@
+# chaves geradas nos testes/demos (NUNCA versionar chave privada)
+*_priv.txt
+*_pub.txt
+*.sig
+__pycache__/
+*.pyc
