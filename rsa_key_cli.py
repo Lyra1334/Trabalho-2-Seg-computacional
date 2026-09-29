@@ -20,7 +20,9 @@ def key_size(value: str) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Gera chaves, cifra e decifra mensagens com RSA.")
+    parser = argparse.ArgumentParser(
+        description="Gera chaves, cifra e decifra mensagens com RSA."
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
     keygen_parser = commands.add_parser("keygen", help="gera um par de chaves RSA")
@@ -33,20 +35,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     encrypt_parser = commands.add_parser("encrypt", help="cifra uma mensagem em UTF-8")
-    encrypt_parser.add_argument("message", nargs="?", metavar="TEXT", help="mensagem a cifrar em UTF-8")
+    encrypt_parser.add_argument(
+        "message", nargs="?", metavar="TEXT", help="mensagem a cifrar em UTF-8"
+    )
 
-    decrypt_parser = commands.add_parser("decrypt", help="decifra uma mensagem em hexadecimal")
-    decrypt_parser.add_argument("ciphertext", nargs="?", metavar="HEX", help="mensagem cifrada em hexadecimal")
+    decrypt_parser = commands.add_parser(
+        "decrypt", help="decifra uma mensagem em hexadecimal"
+    )
+    decrypt_parser.add_argument(
+        "ciphertext", nargs="?", metavar="HEX", help="mensagem cifrada em hexadecimal"
+    )
 
-    for command_parser in (keygen_parser, encrypt_parser, decrypt_parser):
-        command_parser.add_argument(
-            "--output-prefix",
-            default="rsa_key",
-            metavar="PATH",
-            help="prefixo dos arquivos _pub.txt e _priv.txt (padrão: rsa_key)",
-        )
+    keygen_parser.add_argument(
+        "--output-prefix",
+        default="rsa_key",
+        metavar="PATH",
+        help="prefixo dos arquivos _pub.txt e _priv.txt (padrão: rsa_key)",
+    )
 
     for command_parser in (encrypt_parser, decrypt_parser):
+        command_parser.add_argument(
+            "-k",
+            dest="key_file",
+            required=True,
+            metavar="PATH",
+            help="arquivo com a chave RSA",
+        )
         command_parser.add_argument(
             "-i", "--input-file", metavar="PATH", help="arquivo de entrada da mensagem"
         )
@@ -78,22 +92,30 @@ def main() -> None:
         if args.message is not None and args.input_file is not None:
             parser.error("Use a mensagem ou -i, não ambos")
         try:
-            key = tuple(map(int, Path(f"{args.output_prefix}_pub.txt").read_text().split()))
-            plaintext = Path(args.input_file).read_text(encoding="utf-8") if args.input_file else args.message
+            key = tuple(map(int, Path(args.key_file).read_text().split()))
+            plaintext = (
+                Path(args.input_file).read_text(encoding="utf-8")
+                if args.input_file
+                else args.message
+            )
             ciphertext = rsa_oaep_encrypt(plaintext.encode("utf-8"), key).hex()
             if args.output_file is not None:
                 Path(args.output_file).write_text(ciphertext, encoding="utf-8")
             print(ciphertext)
         except (OSError, ValueError) as exc:
             parser.error(str(exc))
-    else:
+    elif args.command == "decrypt":
         if args.ciphertext is None and args.input_file is None:
             parser.error("Informe o texto cifrado ou use -i para ler um arquivo")
         if args.ciphertext is not None and args.input_file is not None:
             parser.error("Use o texto cifrado ou -i, não ambos")
         try:
-            key = tuple(map(int, Path(f"{args.output_prefix}_priv.txt").read_text().split()))
-            ciphertext = Path(args.input_file).read_text(encoding="utf-8") if args.input_file else args.ciphertext
+            key = tuple(map(int, Path(args.key_file).read_text().split()))
+            ciphertext = (
+                Path(args.input_file).read_text(encoding="utf-8")
+                if args.input_file
+                else args.ciphertext
+            )
             message = rsa_oaep_decrypt(bytes.fromhex(ciphertext), key)
             plaintext = message.decode("utf-8")
             if args.output_file is not None:
