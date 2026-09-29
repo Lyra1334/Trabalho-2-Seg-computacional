@@ -1,13 +1,17 @@
 from random import randint, getrandbits
 
+SMALL_PRIMES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47)
+
 def MillerTest(n : int) -> bool:
     #Teste de miller pra ver se um número é provavelmente primo.
     #Implementado de acordo com: https://schcs.github.io/WP/index.php/ensino/fundamentos-de-algebra/o-teste-de-primalidade-de-miller/
-    if n <= 3:
-        return True
-    elif n%2 == 0:
+    if n < 2:
         return False
-        #Não sei se o resto do teste conta com isso, adicionando pra ter certeza pois acho que já é dado.
+    for prime in SMALL_PRIMES:
+        if n == prime:
+            return True
+        if n % prime == 0:
+            return False
     b = randint(2,n-2)
     k = 1
     q = n-1
@@ -28,12 +32,15 @@ def MillerTest(n : int) -> bool:
 
 def GeneratePrimes(mod):
     #Gera os dois numeros primos e diferentes entre si.
-    a = getrandbits(mod)
-    b = getrandbits(mod)
+    def candidate():
+        return getrandbits(mod) | (1 << (mod - 1)) | 1
+
+    a = candidate()
+    b = candidate()
     while not MillerTest(a):
-        a = getrandbits(mod)
+        a = candidate()
     while (not MillerTest(b) or a==b):
-        b = getrandbits(mod)
+        b = candidate()
     return a, b
 
 def MDC(a:int, b:int):
