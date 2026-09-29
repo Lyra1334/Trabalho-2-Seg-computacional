@@ -19,38 +19,49 @@ def key_size(value: str) -> int:
     return bits
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Gera chaves, cifra e decifra mensagens com RSA.")
-    action = parser.add_mutually_exclusive_group(required=True)
-    action.add_argument(
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    keygen_parser = commands.add_parser("keygen", help="gera um par de chaves RSA")
+    keygen_parser.add_argument(
         "--key-size",
         type=key_size,
+        required=True,
         metavar="BITS",
         help="tamanho exato da chave pública em bits (número par)",
     )
-    action.add_argument("--encrypt", nargs="?", const=True, metavar="TEXT", help="mensagem a cifrar em UTF-8")
-    action.add_argument("--decrypt", nargs="?", const=True, metavar="HEX", help="mensagem cifrada em hexadecimal")
-    parser.add_argument(
-        "--output-prefix",
-        default="rsa_key",
-        metavar="PATH",
-        help="prefixo dos arquivos _pub.txt e _priv.txt (padrão: rsa_key)",
-    )
-    parser.add_argument(
-        "-i", "--input-file",
-        metavar="PATH",
-        help="arquivo de entrada para --encrypt ou --decrypt",
-    )
-    parser.add_argument(
-        "-o", "--output-file",
-        metavar="PATH",
-        help="arquivo de saída para a mensagem cifrada ou decifrada",
-    )
+
+    encrypt_parser = commands.add_parser("encrypt", help="cifra uma mensagem em UTF-8")
+    encrypt_parser.add_argument("message", nargs="?", metavar="TEXT", help="mensagem a cifrar em UTF-8")
+
+    decrypt_parser = commands.add_parser("decrypt", help="decifra uma mensagem em hexadecimal")
+    decrypt_parser.add_argument("ciphertext", nargs="?", metavar="HEX", help="mensagem cifrada em hexadecimal")
+
+    for command_parser in (keygen_parser, encrypt_parser, decrypt_parser):
+        command_parser.add_argument(
+            "--output-prefix",
+            default="rsa_key",
+            metavar="PATH",
+            help="prefixo dos arquivos _pub.txt e _priv.txt (padrão: rsa_key)",
+        )
+
+    for command_parser in (encrypt_parser, decrypt_parser):
+        command_parser.add_argument(
+            "-i", "--input-file", metavar="PATH", help="arquivo de entrada da mensagem"
+        )
+        command_parser.add_argument(
+            "-o", "--output-file", metavar="PATH", help="arquivo de saída da mensagem"
+        )
+
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     args = parser.parse_args()
 
-    if args.key_size is not None:
-        if args.input_file is not None or args.output_file is not None:
-            parser.error("-i e -o são usados apenas com --encrypt ou --decrypt")
+    if args.command == "keygen":
         public_path = Path(f"{args.output_prefix}_pub.txt")
         while True:
             generateKeyPair(args.key_size // 2, args.output_prefix)
@@ -61,14 +72,14 @@ def main() -> None:
         print(f"Par de chaves RSA de {args.key_size} bits gerado:")
         print(f"  Chave pública: {public_path}")
         print(f"  Chave privada: {args.output_prefix}_priv.txt")
-    elif args.encrypt is not None:
-        if args.encrypt is True and args.input_file is None:
+    elif args.command == "encrypt":
+        if args.message is None and args.input_file is None:
             parser.error("Informe a mensagem ou use -i para ler um arquivo")
-        if args.encrypt is not True and args.input_file is not None:
+        if args.message is not None and args.input_file is not None:
             parser.error("Use a mensagem ou -i, não ambos")
         try:
             key = tuple(map(int, Path(f"{args.output_prefix}_pub.txt").read_text().split()))
-            plaintext = Path(args.input_file).read_text(encoding="utf-8") if args.input_file else args.encrypt
+            plaintext = Path(args.input_file).read_text(encoding="utf-8") if args.input_file else args.message
             ciphertext = rsa_oaep_encrypt(plaintext.encode("utf-8"), key).hex()
             if args.output_file is not None:
                 Path(args.output_file).write_text(ciphertext, encoding="utf-8")
@@ -76,13 +87,13 @@ def main() -> None:
         except (OSError, ValueError) as exc:
             parser.error(str(exc))
     else:
-        if args.decrypt is True and args.input_file is None:
+        if args.ciphertext is None and args.input_file is None:
             parser.error("Informe o texto cifrado ou use -i para ler um arquivo")
-        if args.decrypt is not True and args.input_file is not None:
+        if args.ciphertext is not None and args.input_file is not None:
             parser.error("Use o texto cifrado ou -i, não ambos")
         try:
             key = tuple(map(int, Path(f"{args.output_prefix}_priv.txt").read_text().split()))
-            ciphertext = Path(args.input_file).read_text(encoding="utf-8") if args.input_file else args.decrypt
+            ciphertext = Path(args.input_file).read_text(encoding="utf-8") if args.input_file else args.ciphertext
             message = rsa_oaep_decrypt(bytes.fromhex(ciphertext), key)
             plaintext = message.decode("utf-8")
             if args.output_file is not None:
